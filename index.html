@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blogpost Compiler — Nanometer Horizon</title>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Special+Elite&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper:#F5F0E6; --paper-dark:#EBE4D4; --ink:#2C2416; --ink-light:#5C4D3C;
+    --ink-faded:#9E8E7A; --coffee:#6B4E3D; --coffee-light:#8B6E5D;
+    --wood:#8B6914; --wood-dark:#5C450A; --highlight:#D4A574;
+    --highlight-soft:rgba(212,165,116,0.2); --red-ink:#8B3A3A;
+    --blue-ink:#3A5F8B; --green-ink:#3A6B3A; --orange-ink:#8B5A2B;
+    --font-hand:'Caveat',cursive; --font-typewriter:'Special Elite','Courier New',monospace;
+    --font-serif:'Merriweather',Georgia,serif; --radius:3px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:var(--font-hand);background:url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E"),#E8DCC8;color:var(--ink);min-height:100vh;line-height:1.5;}
+  .desk-edge{height:8px;background:linear-gradient(180deg,#A08040 0%,#8B6914 40%,#6B4E10 100%);border-bottom:2px solid #5C450A;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+  .app{display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:1400px;margin:0 auto;padding:24px;height:calc(100vh - 8px);}
+  .panel{display:flex;flex-direction:column;background:var(--paper);border-radius:var(--radius);box-shadow:0 1px 3px rgba(0,0,0,.12),0 4px 12px rgba(0,0,0,.08),inset 0 0 60px rgba(139,105,20,.04);position:relative;overflow:hidden;min-height:0;}
+  .panel::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.04' numOctaves='5'/%3E%3CfeDiffuseLighting lighting-color='%23F5F0E6' surfaceScale='2'%3E%3CfeDistantLight azimuth='45' elevation='60'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paper)' opacity='0.4'/%3E%3C/svg%3E");pointer-events:none;opacity:.6;mix-blend-mode:multiply;}
+  .panel>*{position:relative;z-index:1;}
+  .panel::after{content:'';position:absolute;width:120px;height:120px;border-radius:50%;border:3px solid rgba(107,78,61,.08);top:20px;right:20px;pointer-events:none;transform:rotate(-15deg);box-shadow:inset 0 0 20px rgba(107,78,61,.05),0 0 0 8px rgba(107,78,61,.03),0 0 0 16px rgba(107,78,61,.02);}
+  .left-panel{border-left:3px solid var(--wood);}
+  .tab-row{display:flex;border-bottom:2px solid var(--coffee);background:transparent;padding:12px 16px 0;gap:2px;flex-shrink:0;}
+  .tab{font-family:var(--font-hand);font-size:20px;font-weight:600;padding:8px 20px 6px;cursor:pointer;border:2px solid var(--coffee);border-bottom:none;border-radius:8px 8px 0 0;color:var(--coffee);background:var(--paper-dark);position:relative;top:2px;transition:all .2s ease;}
+  .tab:hover{background:var(--paper);color:var(--wood-dark);}
+  .tab.active{background:var(--paper);color:var(--ink);border-bottom:2px solid var(--paper);z-index:2;box-shadow:0 -2px 6px rgba(0,0,0,.05);}
+  .pb{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px;min-height:0;}
+  textarea#raw-input{width:100%;min-height:160px;font-family:var(--font-hand);font-size:20px;line-height:1.6;color:var(--ink);background:transparent;border:2px dashed var(--coffee-light);border-radius:var(--radius);padding:16px;outline:none;resize:vertical;transition:border-color .2s;}
+  textarea#raw-input:focus{border-color:var(--wood);border-style:solid;background:rgba(212,165,116,.05);}
+  textarea#raw-input::placeholder{color:var(--ink-faded);font-style:italic;}
+  button.btn{font-family:var(--font-hand);font-size:18px;font-weight:600;padding:8px 18px;border:2px solid var(--coffee);border-radius:var(--radius);background:var(--paper);color:var(--coffee);cursor:pointer;transition:all .15s ease;box-shadow:2px 2px 0 var(--coffee-light);}
+  button.btn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--coffee);background:var(--highlight-soft);}
+  button.btn:active{transform:translate(1px,1px);box-shadow:1px 1px 0 var(--coffee);}
+  button.btn.primary{background:var(--coffee);color:var(--paper);border-color:var(--wood-dark);box-shadow:2px 2px 0 var(--wood-dark);}
+  button.btn.primary:hover{background:var(--wood);box-shadow:3px 3px 0 var(--wood-dark);}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .row select,select.ts{font-family:var(--font-hand);font-size:18px;font-weight:500;padding:6px 12px;border:2px solid var(--coffee-light);border-radius:var(--radius);background:var(--paper);color:var(--ink);outline:none;cursor:pointer;}
+  .row select:focus,select.ts:focus{border-color:var(--wood);}
+
+  /* ── Import drop zone ── */
+  .import-zone{border:2px dashed var(--coffee-light);border-radius:var(--radius);padding:14px 16px;text-align:center;cursor:pointer;transition:all .2s;font-family:var(--font-hand);font-size:17px;color:var(--ink-faded);position:relative;}
+  .import-zone:hover,.import-zone.drag{border-color:var(--wood);border-style:solid;background:var(--highlight-soft);color:var(--coffee);}
+  .import-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+
+  /* ── Block items ── */
+  .block-item{border:1px solid var(--coffee-light);border-radius:2px;background:#FDFCF8;box-shadow:1px 2px 4px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.02);transition:all .2s ease;position:relative;margin-bottom:14px;}
+  .block-item:nth-child(odd){transform:rotate(-.3deg);}
+  .block-item:nth-child(even){transform:rotate(.3deg);}
+  .block-item:hover{box-shadow:2px 4px 8px rgba(0,0,0,.12),0 0 0 1px rgba(0,0,0,.03);transform:rotate(0deg) translateY(-1px);z-index:2;}
+  .block-item::before{content:'';position:absolute;top:-8px;left:50%;transform:translateX(-50%) rotate(-2deg);width:60px;height:20px;background:rgba(255,255,255,.4);border:1px solid rgba(0,0,0,.05);box-shadow:0 1px 2px rgba(0,0,0,.05);z-index:3;pointer-events:none;}
+  .block-top{display:flex;}
+  .block-text{flex:1;font-family:var(--font-hand);font-size:20px;padding:14px 16px;color:var(--ink);background:transparent;line-height:1.5;white-space:pre-wrap;word-break:break-word;min-height:50px;outline:none;border:none;}
+  .block-ctrl{display:flex;flex-direction:column;border-left:1px dashed var(--coffee-light);min-width:110px;background:rgba(212,165,116,.05);}
+  select.ts{border:none;border-bottom:1px dashed var(--coffee-light);border-radius:0;width:100%;font-size:15px;padding:8px 10px;background:transparent;color:var(--coffee);font-weight:600;}
+  .acts{display:flex;}
+  .ab{flex:1;border:none;background:transparent;cursor:pointer;font-family:var(--font-hand);font-size:18px;font-weight:600;padding:6px 8px;color:var(--coffee);border-right:1px dashed var(--coffee-light);transition:all .15s;}
+  .ab:last-child{border-right:none;}
+  .ab:hover{background:var(--highlight-soft);color:var(--wood-dark);}
+
+  /* ── Structured block editors ── */
+  .media-editor{flex:1;display:flex;flex-direction:column;gap:8px;padding:12px 14px 14px;}
+  .media-editor label{font-family:var(--font-hand);font-size:14px;color:var(--ink-faded);}
+  .media-editor input[type=text],.media-editor textarea.me-ta{font-family:var(--font-hand);font-size:17px;color:var(--ink);background:transparent;border:1.5px dashed var(--coffee-light);border-radius:var(--radius);padding:5px 10px;outline:none;width:100%;transition:border-color .2s;resize:vertical;}
+  .media-editor textarea.me-ta{min-height:70px;font-size:14px;line-height:1.5;}
+  .media-editor input[type=text]:focus,.media-editor textarea.me-ta:focus{border-color:var(--wood);border-style:solid;}
+  .media-editor input::placeholder,.media-editor textarea::placeholder{color:var(--ink-faded);font-style:italic;}
+  .chip-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:2px;align-items:center;}
+  .chip-px-wrap{display:flex;align-items:center;gap:3px;margin-left:4px;}
+  .chip-px-wrap input{font-family:var(--font-hand);font-size:14px;color:var(--ink);background:transparent;border:1.5px dashed var(--coffee-light);border-radius:20px;padding:2px 8px;outline:none;width:72px;transition:border-color .2s;}
+  .chip-px-wrap input:focus{border-color:var(--wood);border-style:solid;}
+  .chip-px-wrap input::placeholder{color:var(--ink-faded);font-style:italic;}
+  .chip-px-wrap span{font-family:var(--font-hand);font-size:13px;color:var(--ink-faded);}
+  .chip.custom-on{background:var(--wood);color:var(--paper);border-color:var(--wood-dark);}
+  .chip{font-family:var(--font-hand);font-size:14px;font-weight:600;padding:3px 11px;border:1.5px solid var(--coffee-light);border-radius:20px;background:transparent;color:var(--coffee);cursor:pointer;transition:all .15s;}
+  .chip.on{background:var(--coffee);color:var(--paper);border-color:var(--wood-dark);}
+  .chip:hover:not(.on){background:var(--highlight-soft);border-color:var(--wood);}
+
+  /* file import thumbnail in block */
+  .file-thumb{max-width:100%;max-height:120px;border-radius:2px;margin-top:6px;object-fit:contain;display:block;}
+  .file-thumb-vid{width:100%;height:80px;border-radius:2px;margin-top:6px;background:#000;display:block;}
+
+  /* ── Table grid editor ── */
+  .tbl-editor{flex:1;display:flex;flex-direction:column;gap:8px;padding:12px 14px 14px;overflow:auto;}
+  .tbl-editor label{font-family:var(--font-hand);font-size:14px;color:var(--ink-faded);}
+  .tbl-editor input.tbl-label-inp{font-family:var(--font-hand);font-size:17px;color:var(--ink);background:transparent;border:1.5px dashed var(--coffee-light);border-radius:var(--radius);padding:5px 10px;outline:none;width:100%;transition:border-color .2s;}
+  .tbl-editor input.tbl-label-inp:focus{border-color:var(--wood);border-style:solid;}
+  .tbl-grid-wrap{overflow-x:auto;}
+  .tbl-grid{border-collapse:collapse;font-family:var(--font-hand);font-size:15px;}
+  .tbl-grid th,.tbl-grid td{border:1px solid var(--coffee-light);padding:0;}
+  .tbl-grid th{background:rgba(107,78,61,.08);}
+  .tbl-cell{font-family:var(--font-hand);font-size:15px;color:var(--ink);background:transparent;border:none;outline:none;padding:5px 8px;width:120px;min-width:80px;}
+  .tbl-head-cell{font-weight:700;color:var(--coffee);}
+  .tbl-ctrl-row td{border:none;padding:3px 2px;}
+  .tbl-ctrl-btn{font-family:var(--font-hand);font-size:13px;padding:2px 8px;border:1.5px solid var(--coffee-light);border-radius:20px;background:transparent;color:var(--coffee);cursor:pointer;white-space:nowrap;}
+  .tbl-ctrl-btn:hover{background:var(--highlight-soft);}
+  .tbl-col-del{font-size:11px;padding:1px 5px;color:var(--red-ink);border-color:var(--red-ink);border-radius:20px;border:1px solid;background:transparent;cursor:pointer;font-family:var(--font-hand);}
+  .tbl-row-del{font-size:11px;padding:1px 5px;color:var(--red-ink);border-color:var(--red-ink);border-radius:20px;border:1px solid;background:transparent;cursor:pointer;font-family:var(--font-hand);vertical-align:middle;}
+
+  /* btn-group editor */
+  .btn-row-editor{display:flex;flex-direction:column;gap:6px;}
+  .btn-entry{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+  .btn-entry input[type=text]{font-family:var(--font-hand);font-size:16px;color:var(--ink);background:transparent;border:1.5px dashed var(--coffee-light);border-radius:var(--radius);padding:4px 8px;outline:none;transition:border-color .2s;}
+  .btn-entry input[type=text]:focus{border-color:var(--wood);border-style:solid;}
+  .btn-entry select{font-family:var(--font-hand);font-size:15px;padding:4px 8px;border:1.5px solid var(--coffee-light);border-radius:var(--radius);background:var(--paper);color:var(--ink);outline:none;cursor:pointer;}
+  .btn-entry .ab-sm{border:1.5px solid var(--coffee-light);border-radius:var(--radius);background:transparent;color:var(--red-ink);cursor:pointer;font-size:15px;padding:3px 8px;font-family:var(--font-hand);}
+
+  /* ── Preview frame ── */
+  #preview-frame{flex:1;overflow-y:auto;padding:32px;font-family:var(--font-serif);font-size:15px;line-height:1.9;color:var(--ink);background:repeating-linear-gradient(transparent,transparent 28px,rgba(139,105,20,.06) 28px,rgba(139,105,20,.06) 29px);background-size:100% 29px;min-height:0;}
+  #preview-frame h1{font-family:var(--font-typewriter);font-size:24px;font-weight:400;margin:0 0 16px;color:var(--ink);letter-spacing:-.5px;}
+  #preview-frame h2{font-family:var(--font-typewriter);font-size:19px;font-weight:400;margin:24px 0 12px;color:var(--ink);}
+  #preview-frame h3{font-family:var(--font-typewriter);font-size:16px;font-weight:400;margin:18px 0 10px;color:var(--ink);}
+  #preview-frame p{margin:0 0 12px;color:var(--ink-light);}
+  .pv-note{background:rgba(58,95,139,.08);border-left:3px solid var(--blue-ink);padding:12px 16px;margin:14px 0;font-family:var(--font-hand);font-size:18px;color:var(--blue-ink);border-radius:0 4px 4px 0;transform:rotate(-.2deg);}
+  .pv-info{background:rgba(58,107,58,.08);border-left:3px solid var(--green-ink);padding:12px 16px;margin:14px 0;font-family:var(--font-hand);font-size:18px;color:var(--green-ink);border-radius:0 4px 4px 0;transform:rotate(.2deg);}
+  .pv-warning{background:rgba(139,90,43,.08);border-left:3px solid var(--orange-ink);padding:12px 16px;margin:14px 0;font-family:var(--font-hand);font-size:18px;color:var(--orange-ink);border-radius:0 4px 4px 0;transform:rotate(-.1deg);}
+  .pv-alert{background:rgba(139,58,58,.08);border-left:3px solid var(--red-ink);padding:12px 16px;margin:14px 0;font-family:var(--font-hand);font-size:18px;color:var(--red-ink);border-radius:0 4px 4px 0;transform:rotate(.1deg);}
+  .pv-success{background:rgba(38,110,38,.09);border-left:3px solid #2a7a2a;padding:12px 16px;margin:14px 0;font-family:var(--font-hand);font-size:18px;color:#1f5c1f;border-radius:0 4px 4px 0;transform:rotate(-.15deg);}
+  .pv-tip{background:rgba(107,78,61,.07);border-left:3px solid var(--coffee);padding:12px 16px;margin:14px 0;font-family:var(--font-hand);font-size:18px;color:var(--coffee);border-radius:0 4px 4px 0;transform:rotate(.15deg);}
+  .pv-quote{border-left:3px solid var(--coffee-light);padding:10px 20px;margin:14px 0;font-style:italic;color:var(--ink-light);font-family:var(--font-serif);background:rgba(0,0,0,.02);}
+  .pv-code{background:#F0EBE0;font-family:var(--font-typewriter);font-size:13px;padding:14px;border-radius:2px;margin:14px 0;white-space:pre-wrap;word-break:break-word;border:1px solid var(--coffee-light);color:var(--ink);line-height:1.6;box-shadow:inset 0 1px 3px rgba(0,0,0,.05);}
+  .pv-divider{border:none;height:2px;background:linear-gradient(90deg,transparent,var(--coffee-light),transparent);margin:20px 0;}
+  .pv-divider-dots{border:none;text-align:center;margin:20px 0;color:var(--coffee-light);font-size:18px;letter-spacing:8px;}
+  .pv-divider-dots::before{content:'· · · · ·';}
+  .pv-divider-label{border:none;text-align:center;margin:20px 0;}
+  .pv-divider-label span{font-family:var(--font-typewriter);font-size:12px;color:var(--coffee-light);border:1px solid var(--coffee-light);padding:2px 12px;border-radius:20px;}
+
+  /* image/video preview sizing */
+  .pv-img-wrap{margin:14px 0;overflow:hidden;}
+  .pv-img-wrap::after{content:'';display:table;clear:both;}
+  .pv-img-wrap img,.pv-img-wrap video{max-width:100%;border-radius:2px;display:block;}
+  .pv-img-wrap .img-caption{font-family:var(--font-hand);font-size:14px;color:var(--ink-faded);text-align:center;margin-top:6px;font-style:italic;clear:both;}
+  /* width chips */
+  #preview-frame .img-full  {width:100%;}
+  #preview-frame .img-wide  {width:80%;margin-left:auto;margin-right:auto;}
+  #preview-frame .img-half  {width:50%;margin-left:auto;margin-right:auto;}
+  #preview-frame .img-third {width:33%;margin-left:auto;margin-right:auto;}
+  #preview-frame .img-small {width:220px;margin-left:auto;margin-right:auto;}
+  #preview-frame .img-left-half  {float:left;width:45%;margin:0 16px 12px 0;}
+  #preview-frame .img-right-half {float:right;width:45%;margin:0 0 12px 16px;}
+  /* height chips — applied to the element itself */
+  #preview-frame .h-auto    {height:auto;}
+  #preview-frame .h-200     {height:200px;width:auto;max-width:100%;object-fit:cover;}
+  #preview-frame .h-320     {height:320px;width:auto;max-width:100%;object-fit:cover;}
+  #preview-frame .h-480     {height:480px;width:auto;max-width:100%;object-fit:cover;}
+
+  .pv-video-wrap{margin:14px 0;}
+  .pv-video-wrap iframe,.pv-video-wrap video{border:none;border-radius:2px;display:block;}
+  /* video width chips */
+  #preview-frame .vid-full  {width:100%;}
+  #preview-frame .vid-wide  {width:80%;margin-left:auto;margin-right:auto;}
+  #preview-frame .vid-half  {width:50%;margin-left:auto;margin-right:auto;}
+  #preview-frame .vid-third {width:33%;margin-left:auto;margin-right:auto;}
+  #preview-frame .vid-small {width:220px;margin-left:auto;margin-right:auto;}
+  #preview-frame .vid-left-half  {float:left;width:45%;margin:0 16px 12px 0;}
+  #preview-frame .vid-right-half {float:right;width:45%;margin:0 0 12px 16px;}
+  /* video height chips */
+  #preview-frame .vh-220 {height:220px;}
+  #preview-frame .vh-320 {height:320px;}
+  #preview-frame .vh-480 {height:480px;}
+
+  /* table preview */
+  .pv-table-label{font-family:var(--font-typewriter);font-size:12px;color:var(--coffee-light);border:1px solid var(--coffee-light);padding:2px 10px;border-radius:2px;display:inline-block;margin-bottom:6px;}
+  .pv-table-wrap{overflow-x:auto;margin:14px 0;}
+  .pv-table-wrap table{width:100%;border-collapse:collapse;font-family:var(--font-serif);font-size:13px;}
+  .pv-table-wrap th{background:rgba(107,78,61,.08);border:1px solid var(--coffee-light);padding:8px 12px;text-align:left;font-weight:700;color:var(--ink);}
+  .pv-table-wrap td{border:1px solid rgba(139,110,93,.3);padding:7px 12px;color:var(--ink-light);}
+  .pv-table-wrap tr:nth-child(even) td{background:rgba(212,165,116,.05);}
+
+  /* button group preview */
+  .pv-btn-group{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0;}
+  .pv-btn{font-family:var(--font-typewriter);font-size:13px;padding:7px 18px;border-radius:2px;text-decoration:none;display:inline-block;cursor:default;}
+  .pv-btn-primary  {background:#ff7043;color:#fff;border:1px solid #cc5733;}
+  .pv-btn-secondary{background:#7e57c2;color:#fff;border:1px solid #5e3d9e;}
+  .pv-btn-ghost    {background:transparent;color:#ff7043;border:1px solid #ff7043;}
+  .pv-btn-danger   {background:#c62828;color:#fff;border:1px solid #8e0000;}
+
+  /* toggle preview */
+  .pv-toggle{border:1px solid var(--coffee-light);border-radius:2px;margin:14px 0;overflow:hidden;}
+  .pv-toggle-head{background:rgba(107,78,61,.07);padding:10px 14px;font-family:var(--font-hand);font-size:17px;color:var(--coffee);font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;}
+  .pv-toggle-head::before{content:'▶';font-size:11px;transition:transform .2s;}
+  .pv-toggle-head.open::before{transform:rotate(90deg);}
+  .pv-toggle-body{display:none;padding:12px 14px;font-family:var(--font-serif);font-size:13px;color:var(--ink-light);border-top:1px solid var(--coffee-light);}
+  .pv-toggle-body.open{display:block;}
+  .pv-toggle.pv-spoiler .pv-toggle-head{color:var(--red-ink);}
+  .pv-toggle.pv-code-toggle .pv-toggle-body{background:#F0EBE0;font-family:var(--font-typewriter);font-size:12px;white-space:pre-wrap;word-break:break-word;}
+
+  /* output box */
+  #output-box{flex:1;font-family:var(--font-typewriter);font-size:12px;padding:24px;background:#F0EBE0;color:var(--ink);white-space:pre-wrap;word-break:break-word;line-height:1.8;overflow-y:auto;border:none;outline:none;resize:none;width:100%;border-top:1px solid var(--coffee-light);min-height:0;}
+  .toolbar{padding:14px 20px;border-top:2px solid var(--coffee);display:flex;gap:12px;background:var(--paper-dark);flex-shrink:0;}
+  .empty-state{text-align:center;padding:60px 24px;color:var(--ink-faded);font-family:var(--font-hand);font-size:22px;}
+  ::-webkit-scrollbar{width:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--coffee-light);border-radius:4px;}
+  ::-webkit-scrollbar-thumb:hover{background:var(--coffee);}
+  .ink-splatter{position:fixed;width:200px;height:200px;pointer-events:none;opacity:.04;z-index:0;background:radial-gradient(circle,var(--ink) 0%,transparent 70%);filter:blur(40px);}
+  .ink-splatter.top-right{top:-50px;right:-50px;}
+  .ink-splatter.bottom-left{bottom:-50px;left:-50px;}
+  @media(max-width:900px){.app{grid-template-columns:1fr;height:auto;}.left-panel{border-left:none;border-top:3px solid var(--wood);}}
+  @media(max-width:768px){
+    #preview-frame .img-half,#preview-frame .img-third,#preview-frame .img-wide,
+    #preview-frame .img-left-half,#preview-frame .img-right-half,
+    #preview-frame .vid-half,#preview-frame .vid-third,#preview-frame .vid-wide,
+    #preview-frame .vid-left-half,#preview-frame .vid-right-half
+    {float:none;width:100%;margin:1.5rem 0;}
+  }
+</style>
+<base target="_blank">
+</head>
+<body>
+<div class="desk-edge"></div>
+<div class="ink-splatter top-right"></div>
+<div class="ink-splatter bottom-left"></div>
+
+<div class="app">
+  <!-- LEFT PANEL -->
+  <div class="panel left-panel">
+    <div class="tab-row">
+      <button class="tab active" id="tab-input"  onclick="showTab('input')">Input</button>
+      <button class="tab"        id="tab-blocks" onclick="showTab('blocks')">Blocks<span id="bc"></span></button>
+    </div>
+
+    <div id="pane-input" class="pb">
+      <textarea id="raw-input" placeholder="Paste your content here…
+
+Blank lines separate blocks.
+# Heading 1   ## Heading 2   ### Heading 3
+> blockquote   ``` code block
+Note: / Info: / Warning: / Alert: / Success: / Tip:
+
+Images, videos, tables, dividers, toggles, and button groups → add via '+ add block' or import a file below."></textarea>
+      <button class="btn primary" onclick="splitText()" style="width:100%">Split into blocks →</button>
+
+      <!-- Import zone -->
+      <div class="import-zone" id="import-zone"
+        ondragover="event.preventDefault();this.classList.add('drag')"
+        ondragleave="this.classList.remove('drag')"
+        ondrop="handleDrop(event)">
+        <input type="file" accept=".csv,image/*,.gif,video/*" multiple onchange="handleFiles(this.files)" />
+        📎 Drop or click to import — CSV (table) · Image · GIF · Video
+      </div>
+
+      <div class="row">
+        <select id="add-type">
+          <optgroup label="Text">
+            <option value="paragraph">paragraph</option>
+            <option value="h1">heading 1</option>
+            <option value="h2">heading 2</option>
+            <option value="h3">heading 3</option>
+          </optgroup>
+          <optgroup label="Callouts">
+            <option value="note">note</option>
+            <option value="info">info</option>
+            <option value="warning">warning</option>
+            <option value="alert">alert</option>
+            <option value="success">success</option>
+            <option value="tip">tip</option>
+          </optgroup>
+          <optgroup label="Content">
+            <option value="quote">blockquote</option>
+            <option value="code">code block</option>
+            <option value="image">image</option>
+            <option value="video">video / embed</option>
+            <option value="table">table</option>
+          </optgroup>
+          <optgroup label="Structure">
+            <option value="divider">divider (line)</option>
+            <option value="divider-dots">divider (dots)</option>
+            <option value="divider-label">divider (label)</option>
+            <option value="btn-group">button group</option>
+            <option value="toggle">toggle / spoiler</option>
+          </optgroup>
+        </select>
+        <button class="btn" onclick="addEmpty()">+ add block</button>
+      </div>
+    </div>
+
+    <div id="pane-blocks" class="pb" style="display:none">
+      <div id="blocks-list"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="panel">
+    <div class="tab-row">
+      <button class="tab active" id="tab-preview" onclick="showRTab('preview')">Preview</button>
+      <button class="tab"        id="tab-output"  onclick="showRTab('output')">HTML output</button>
+    </div>
+    <div id="pane-preview" style="display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0;">
+      <div id="preview-frame"><div class="empty-state">Live preview appears here.<br>Paste text and split into blocks to begin.</div></div>
+    </div>
+    <div id="pane-output" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0;">
+      <textarea id="output-box" readonly placeholder="HTML snippets will appear here…"></textarea>
+    </div>
+    <div class="toolbar">
+      <button class="btn primary" onclick="copySnippets()">Copy HTML</button>
+      <button class="btn" onclick="showRTab('output')">View output</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let blocks = [];
+let idc = 0;
+
+const TYPES = [
+  'paragraph','h1','h2','h3',
+  'note','info','warning','alert','success','tip',
+  'quote','code','image','video','table',
+  'divider','divider-dots','divider-label','btn-group','toggle'
+];
+
+// ── Size chip definitions ─────────────────────────────
+const IMG_W = [
+  {cls:'img-full',  label:'Full (100%)'},
+  {cls:'img-wide',  label:'Wide (80%)'},
+  {cls:'img-half',  label:'Half (50%)'},
+  {cls:'img-third', label:'Third (33%)'},
+  {cls:'img-small', label:'Small (220px)'},
+];
+const IMG_O = [
+  {cls:'o-left',       label:'Left'},
+  {cls:'o-center',     label:'Center'},
+  {cls:'o-right',      label:'Right'},
+  {cls:'o-float-left', label:'⬅ Float Left'},
+  {cls:'o-float-right',label:'Float Right ➡'},
+];
+const IMG_H = [
+  {cls:'h-auto', label:'Auto'},
+  {cls:'h-200',  label:'200px'},
+  {cls:'h-320',  label:'320px'},
+  {cls:'h-480',  label:'480px'},
+];
+const VID_W = [
+  {cls:'vid-full',  label:'Full (100%)'},
+  {cls:'vid-wide',  label:'Wide (80%)'},
+  {cls:'vid-half',  label:'Half (50%)'},
+  {cls:'vid-third', label:'Third (33%)'},
+  {cls:'vid-small', label:'Small (220px)'},
+];
+const VID_O = [
+  {cls:'o-left',       label:'Left'},
+  {cls:'o-center',     label:'Center'},
+  {cls:'o-right',      label:'Right'},
+  {cls:'o-float-left', label:'⬅ Float Left'},
+  {cls:'o-float-right',label:'Float Right ➡'},
+];
+const VID_H = [
+  {cls:'vh-220', label:'220px'},
+  {cls:'vh-320', label:'320px'},
+  {cls:'vh-480', label:'480px'},
+];
+const BTN_VARIANTS = ['primary','secondary','ghost','danger'];
+const TOGGLE_VARIANTS = [
+  {cls:'', label:'Default'},
+  {cls:'spoiler', label:'Spoiler'},
+  {cls:'code-toggle', label:'Code'},
+];
+
+// ── Helpers ───────────────────────────────────────────
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function chips(arr, selected, bid, field) {
+  return arr.map(s =>
+    `<button class="chip${selected===s.cls?' on':''}" onclick="updF(${bid},'${field}','${s.cls}');renderAll()">${s.label}</button>`
+  ).join('');
+}
+
+// chips with a trailing "custom px" input; pxField stores the typed value, clsField is set to 'custom' when active
+function chipsCustom(arr, selected, bid, clsField, pxField, pxVal, unit) {
+  const btns = arr.map(s =>
+    `<button class="chip${selected===s.cls?' on':''}" onclick="updF(${bid},'${clsField}','${s.cls}');renderAll()">${s.label}</button>`
+  ).join('');
+  const isCustom = selected === 'custom';
+  const u = unit||'px';
+  return `${btns}<div class="chip-px-wrap">
+    <button class="chip${isCustom?' custom-on':''}" onclick="updF(${bid},'${clsField}','custom');renderAll()">Custom</button>
+    <input type="number" min="1" max="9999" placeholder="${u}" value="${esc(pxVal)}"
+      oninput="updF(${bid},'${pxField}',this.value);updF(${bid},'${clsField}','custom');renderAll()"
+      style="${isCustom?'':'opacity:0.45'}" />
+    <span>${u}</span>
+  </div>`;
+}
+
+// ── Type guesser ──────────────────────────────────────
+function guessType(t) {
+  if (/^###\s/.test(t)) return 'h3';
+  if (/^##\s/.test(t))  return 'h2';
+  if (/^#\s/.test(t))   return 'h1';
+  if (/^>\s?/.test(t))  return 'quote';
+  if (/^```/.test(t))   return 'code';
+  if (/^note:/i.test(t))           return 'note';
+  if (/^info:/i.test(t))           return 'info';
+  if (/^(warning|warn):/i.test(t)) return 'warning';
+  if (/^(alert|danger):/i.test(t)) return 'alert';
+  if (/^success:/i.test(t))        return 'success';
+  if (/^tip:/i.test(t))            return 'tip';
+  if (t.length < 65 && !/[.,;!?]$/.test(t) && !t.includes('\n')) return 'h2';
+  return 'paragraph';
+}
+function clean(text, type) {
+  let t = text.trim();
+  if (['h1','h2','h3'].includes(type)) t = t.replace(/^#+\s*/,'');
+  if (type==='quote')   t = t.replace(/^>\s?/,'');
+  if (type==='code')    t = t.replace(/^```\w*\n?/,'').replace(/\n?```$/,'');
+  if (type==='note')    t = t.replace(/^note:\s*/i,'');
+  if (type==='info')    t = t.replace(/^info:\s*/i,'');
+  if (type==='warning') t = t.replace(/^(warning|warn):\s*/i,'');
+  if (type==='alert')   t = t.replace(/^(alert|danger):\s*/i,'');
+  if (type==='success') t = t.replace(/^success:\s*/i,'');
+  if (type==='tip')     t = t.replace(/^tip:\s*/i,'');
+  return t.trim();
+}
+
+// ── Default block data ────────────────────────────────
+function defaults(type) {
+  const b = {id:++idc, type, text:''};
+  if (type==='image')  { b.url=''; b.alt=''; b.caption=''; b.wCls='img-full'; b.wPx=''; b.oCls='o-left'; b.oPx=''; b.hCls='h-auto'; b.hPx=''; b.isLocal=false; }
+  if (type==='video')  { b.url=''; b.wCls='vid-full'; b.wPx=''; b.oCls='o-left'; b.oPx=''; b.hCls='vh-320'; b.hPx=''; b.isLocal=false; }
+  if (type==='table')  { b.label=''; b.rows=[['',''],['','']]; b.headers=['Column 1','Column 2']; }
+  if (type==='divider-label') { b.label=''; }
+  if (type==='btn-group')   { b.buttons=[{label:'Read more',url:'#',variant:'primary',arrow:true}]; }
+  if (type==='toggle')      { b.summary=''; b.body=''; b.variant=''; }
+  return b;
+}
+
+// ── File import ───────────────────────────────────────
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('import-zone').classList.remove('drag');
+  handleFiles(e.dataTransfer.files);
+}
+
+function handleFiles(files) {
+  Array.from(files).forEach(file => {
+    const name = file.name.toLowerCase();
+    if (name.endsWith('.csv')) {
+      importCSV(file);
+    } else if (file.type.startsWith('video/')) {
+      importVideo(file);
+    } else if (file.type.startsWith('image/') || name.endsWith('.gif')) {
+      importImage(file);
+    }
+  });
+  showTab('blocks');
+}
+
+function importCSV(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.trim().split('\n').map(l => parseCSVLine(l));
+    if (!lines.length) return;
+    const b = defaults('table');
+    b.headers = lines[0];
+    b.rows = lines.slice(1).map(r => {
+      while (r.length < b.headers.length) r.push('');
+      return r.slice(0, b.headers.length);
+    });
+    if (!b.rows.length) b.rows = [b.headers.map(()=>'')];
+    b.label = file.name.replace(/\.csv$/i,'');
+    blocks.push(b);
+    renderAll();
+  };
+  reader.readAsText(file);
+}
+
+function parseCSVLine(line) {
+  const result = []; let cur = ''; let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch==='"') { inQ = !inQ; }
+    else if (ch===',' && !inQ) { result.push(cur.trim()); cur=''; }
+    else cur += ch;
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+function importImage(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const b = defaults('image');
+    b.url = e.target.result;
+    b.alt = file.name;
+    b.isLocal = true;
+    blocks.push(b);
+    renderAll();
+  };
+  reader.readAsDataURL(file);
+}
+
+function importVideo(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const b = defaults('video');
+    b.url = e.target.result;
+    b.isLocal = true;
+    b.mimeType = file.type;
+    blocks.push(b);
+    renderAll();
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── Split text ────────────────────────────────────────
+function splitText() {
+  const raw = document.getElementById('raw-input').value.trim();
+  if (!raw) return;
+  blocks = raw.split(/\n\s*\n/).filter(p=>p.trim()).map(p => {
+    const type = guessType(p.trim());
+    const b = defaults(type);
+    b.text = clean(p.trim(), type);
+    return b;
+  });
+  renderAll(); showTab('blocks');
+}
+
+function addEmpty() {
+  const type = document.getElementById('add-type').value;
+  blocks.push(defaults(type));
+  renderAll(); showTab('blocks');
+}
+
+// ── Block editor bodies ───────────────────────────────
+function blockBody(b) {
+  const textTypes = ['paragraph','h1','h2','h3','note','info','warning','alert','success','tip','quote','code'];
+  if (textTypes.includes(b.type)) {
+    return `<div class="block-text" contenteditable="true"
+      onblur="upd(${b.id},this.innerText)" oninput="upd(${b.id},this.innerText)"
+    >${esc(b.text)}</div>`;
+  }
+  if (b.type==='divider')      return `<div class="block-text" style="color:var(--ink-faded);font-style:italic;font-size:16px;padding:14px 16px">── Gradient divider ──</div>`;
+  if (b.type==='divider-dots') return `<div class="block-text" style="color:var(--ink-faded);font-style:italic;font-size:16px;padding:14px 16px">· · · Dots divider · · ·</div>`;
+
+  if (b.type==='divider-label') return `
+    <div class="media-editor">
+      <label>Label text</label>
+      <input type="text" placeholder="e.g. Media &amp; Images" value="${esc(b.label)}" oninput="updF(${b.id},'label',this.value)" />
+    </div>`;
+
+  if (b.type==='image') {
+    const thumb = b.url ? `<img class="file-thumb" src="${b.url}" alt="preview" />` : '';
+    const urlField = b.isLocal
+      ? `<div style="font-family:var(--font-hand);font-size:13px;color:var(--ink-faded);font-style:italic">Local file imported ✓ — will output as base64</div>`
+      : `<input type="text" placeholder="https://…" value="${esc(b.url)}" oninput="updF(${b.id},'url',this.value)" />`;
+    return `
+      <div class="media-editor">
+        <label>Image source</label>${urlField}${thumb}
+        <label>Alt text</label>
+        <input type="text" placeholder="Describe the image…" value="${esc(b.alt)}" oninput="updF(${b.id},'alt',this.value)" />
+        <label>Caption (optional)</label>
+        <input type="text" placeholder="Fig. 01 — …" value="${esc(b.caption)}" oninput="updF(${b.id},'caption',this.value)" />
+        <label>Width</label>
+        <div class="chip-row">${chipsCustom(IMG_W, b.wCls, b.id, 'wCls', 'wPx', b.wPx)}</div>
+        <label>Orientation</label>
+        <div class="chip-row">${chipsCustom(IMG_O, b.oCls, b.id, 'oCls', 'oPx', b.oPx)}</div>
+        <label>Height</label>
+        <div class="chip-row">${chipsCustom(IMG_H, b.hCls, b.id, 'hCls', 'hPx', b.hPx)}</div>
+      </div>`;
+  }
+
+  if (b.type==='video') {
+    const thumb = (b.url && b.isLocal) ? `<video class="file-thumb-vid" src="${b.url}" controls></video>` : '';
+    const urlField = b.isLocal
+      ? `<div style="font-family:var(--font-hand);font-size:13px;color:var(--ink-faded);font-style:italic">Local file imported ✓</div>`
+      : `<input type="text" placeholder="https://www.youtube.com/embed/…" value="${esc(b.url)}" oninput="updF(${b.id},'url',this.value)" />`;
+    return `
+      <div class="media-editor">
+        <label>${b.isLocal ? 'Local video file' : 'Embed URL (YouTube /embed/…, Vimeo, etc.)'}</label>${urlField}${thumb}
+        <label>Width</label>
+        <div class="chip-row">${chipsCustom(VID_W, b.wCls, b.id, 'wCls', 'wPx', b.wPx)}</div>
+        <label>Orientation</label>
+        <div class="chip-row">${chipsCustom(VID_O, b.oCls, b.id, 'oCls', 'oPx', b.oPx)}</div>
+        <label>Height</label>
+        <div class="chip-row">${chipsCustom(VID_H, b.hCls, b.id, 'hCls', 'hPx', b.hPx)}</div>
+      </div>`;
+  }
+
+  if (b.type==='table') return tableEditor(b);
+
+  if (b.type==='btn-group') {
+    const rows = b.buttons.map((btn,idx) => `
+      <div class="btn-entry">
+        <input type="text" style="width:110px" placeholder="Label" value="${esc(btn.label)}" oninput="updBtn(${b.id},${idx},'label',this.value)" />
+        <input type="text" style="flex:1;min-width:70px" placeholder="URL" value="${esc(btn.url)}" oninput="updBtn(${b.id},${idx},'url',this.value)" />
+        <select onchange="updBtn(${b.id},${idx},'variant',this.value)">
+          ${BTN_VARIANTS.map(v=>`<option value="${v}"${btn.variant===v?' selected':''}>${v}</option>`).join('')}
+        </select>
+        <button class="chip${btn.arrow?' on':''}" onclick="toggleBtnArrow(${b.id},${idx})">→ arrow</button>
+        <button class="ab-sm" onclick="delBtn(${b.id},${idx})">✕</button>
+      </div>`).join('');
+    return `<div class="media-editor"><label>Buttons</label>
+      <div class="btn-row-editor">${rows}</div>
+      <button class="chip" style="margin-top:4px;align-self:flex-start" onclick="addBtn(${b.id})">+ add button</button>
+    </div>`;
+  }
+
+  if (b.type==='toggle') {
+    const vChips = chips(TOGGLE_VARIANTS.map(v=>({cls:v.cls,label:v.label})), b.variant, b.id, 'variant');
+    return `<div class="media-editor">
+      <label>Summary / heading</label>
+      <input type="text" placeholder="What is…?" value="${esc(b.summary)}" oninput="updF(${b.id},'summary',this.value)" />
+      <label>Body content</label>
+      <textarea class="me-ta" placeholder="Body text, or paste code…" oninput="updF(${b.id},'body',this.value)">${esc(b.body)}</textarea>
+      <label>Variant</label>
+      <div class="chip-row">${vChips}</div>
+    </div>`;
+  }
+
+  return `<div class="block-text" style="color:var(--ink-faded);padding:14px 16px">Unknown type</div>`;
+}
+
+// ── Table editor ──────────────────────────────────────
+function tableEditor(b) {
+  const id = b.id;
+  const numCols = b.headers.length;
+  // header row
+  const headCells = b.headers.map((h,ci) => `
+    <th>
+      <input class="tbl-cell tbl-head-cell" value="${esc(h)}" placeholder="Header ${ci+1}"
+        oninput="updTblHeader(${id},${ci},this.value)" />
+    </th>`).join('') + `<th style="width:28px"></th>`;
+
+  // col delete row
+  const colDelRow = `<tr class="tbl-ctrl-row"><td></td>` +
+    b.headers.map((_,ci) => `<td><button class="tbl-col-del" onclick="tblDelCol(${id},${ci})">✕ col</button></td>`).join('') +
+    `<td></td></tr>`;
+
+  // data rows
+  const dataRows = b.rows.map((row,ri) => {
+    const cells = row.map((cell,ci) =>
+      `<td><input class="tbl-cell" value="${esc(cell)}" placeholder="…" oninput="updTblCell(${id},${ri},${ci},this.value)" /></td>`
+    ).join('');
+    return `<tr>${cells}<td><button class="tbl-row-del" onclick="tblDelRow(${id},${ri})">✕</button></td></tr>`;
+  }).join('');
+
+  // add row / col buttons
+  const addRow = `<button class="tbl-ctrl-btn" onclick="tblAddRow(${id})">+ row</button>`;
+  const addCol = `<button class="tbl-ctrl-btn" onclick="tblAddCol(${id})">+ column</button>`;
+
+  return `<div class="tbl-editor">
+    <label>Table label (optional)</label>
+    <input class="tbl-label-inp" type="text" placeholder="// My Table" value="${esc(b.label)}" oninput="updF(${id},'label',this.value)" />
+    <label>Grid</label>
+    <div class="tbl-grid-wrap">
+      <table class="tbl-grid">
+        <thead><tr>${headCells}</tr>${colDelRow}</thead>
+        <tbody>${dataRows}</tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${addRow} ${addCol}</div>
+  </div>`;
+}
+
+// table mutations
+function updTblHeader(id,ci,val){ const b=blocks.find(x=>x.id===id); if(b){b.headers[ci]=val;renderPreview();renderOutput();} }
+function updTblCell(id,ri,ci,val){ const b=blocks.find(x=>x.id===id); if(b){b.rows[ri][ci]=val;renderPreview();renderOutput();} }
+function tblAddRow(id){ const b=blocks.find(x=>x.id===id); if(b){b.rows.push(b.headers.map(()=>''));renderAll();} }
+function tblAddCol(id){ const b=blocks.find(x=>x.id===id); if(b){b.headers.push('Column '+(b.headers.length+1));b.rows.forEach(r=>r.push(''));renderAll();} }
+function tblDelRow(id,ri){ const b=blocks.find(x=>x.id===id); if(b&&b.rows.length>1){b.rows.splice(ri,1);renderAll();} }
+function tblDelCol(id,ci){ const b=blocks.find(x=>x.id===id); if(b&&b.headers.length>1){b.headers.splice(ci,1);b.rows.forEach(r=>r.splice(ci,1));renderAll();} }
+
+// ── Block list render ─────────────────────────────────
+function renderBlocks() {
+  const el = document.getElementById('blocks-list');
+  document.getElementById('bc').textContent = blocks.length ? ` (${blocks.length})` : '';
+  if (!blocks.length) { el.innerHTML = '<div class="empty-state">No blocks yet.</div>'; return; }
+  el.innerHTML = blocks.map((b,i) => `
+    <div class="block-item">
+      <div class="block-top">
+        ${blockBody(b)}
+        <div class="block-ctrl">
+          <select class="ts" onchange="updType(${b.id},this.value)">
+            ${TYPES.map(t=>`<option value="${t}"${t===b.type?' selected':''}>${t}</option>`).join('')}
+          </select>
+          <div class="acts">
+            <button class="ab" onclick="mv(${i},-1)">↑</button>
+            <button class="ab" onclick="mv(${i},1)">↓</button>
+            <button class="ab" onclick="del(${b.id})">×</button>
+          </div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+// ── Update helpers ────────────────────────────────────
+function upd(id,text){ const b=blocks.find(x=>x.id===id); if(b){b.text=text;renderPreview();renderOutput();} }
+function updF(id,field,val){ const b=blocks.find(x=>x.id===id); if(b){b[field]=val;renderPreview();renderOutput();} }
+function updType(id,type){
+  const b=blocks.find(x=>x.id===id); if(!b) return;
+  const oldText=b.text; const nb=defaults(type); nb.id=id; nb.text=oldText;
+  Object.assign(b,nb); renderAll();
+}
+function updBtn(id,idx,field,val){ const b=blocks.find(x=>x.id===id); if(b){b.buttons[idx][field]=val;renderPreview();renderOutput();} }
+function toggleBtnArrow(id,idx){ const b=blocks.find(x=>x.id===id); if(b){b.buttons[idx].arrow=!b.buttons[idx].arrow;renderAll();} }
+function addBtn(id){ const b=blocks.find(x=>x.id===id); if(b){b.buttons.push({label:'Link',url:'#',variant:'secondary',arrow:true});renderAll();} }
+function delBtn(id,idx){ const b=blocks.find(x=>x.id===id); if(b){b.buttons.splice(idx,1);renderAll();} }
+function mv(i,d){ const j=i+d; if(j<0||j>=blocks.length) return; [blocks[i],blocks[j]]=[blocks[j],blocks[i]]; renderAll(); }
+function del(id){ blocks=blocks.filter(x=>x.id!==id); renderAll(); }
+function renderAll(){ renderBlocks(); renderPreview(); renderOutput(); }
+
+// ── Style resolvers ───────────────────────────────────
+// Returns {wStyle, oStyle, hStyle, wClass, oClass, hClass} for image/video
+function resolveImgStyles(b) {
+  const W_MAP = {
+    'img-full':'width:100%', 'img-wide':'width:80%', 'img-half':'width:50%',
+    'img-third':'width:33%', 'img-small':'width:220px'
+  };
+  const V_MAP = {
+    'vid-full':'width:100%', 'vid-wide':'width:80%', 'vid-half':'width:50%',
+    'vid-third':'width:33%', 'vid-small':'width:220px'
+  };
+  const H_IMG_MAP = {'h-auto':'height:auto','h-200':'height:200px;object-fit:cover','h-320':'height:320px;object-fit:cover','h-480':'height:480px;object-fit:cover'};
+  const H_VID_MAP = {'vh-220':'height:220px','vh-320':'height:320px','vh-480':'height:480px'};
+  const O_MAP = {
+    'o-left':'margin-left:0;margin-right:auto;float:none;display:block',
+    'o-center':'margin-left:auto;margin-right:auto;float:none;display:block',
+    'o-right':'margin-left:auto;margin-right:0;float:none;display:block',
+    'o-float-left':'float:left;margin:0 16px 12px 0;display:block',
+    'o-float-right':'float:right;margin:0 0 12px 16px;display:block',
+  };
+  const isVid = b.type === 'video';
+  const wMap = isVid ? V_MAP : W_MAP;
+  const hMap = isVid ? H_VID_MAP : H_IMG_MAP;
+
+  const wStyle = b.wCls === 'custom' && b.wPx ? `width:${b.wPx}px` : (wMap[b.wCls] || 'width:100%');
+  const hStyle = b.hCls === 'custom' && b.hPx ? `height:${b.hPx}px` : (hMap[b.hCls] || '');
+  const oStyle = b.oCls === 'custom' && b.oPx ? `margin-left:${b.oPx}px;display:block` : (O_MAP[b.oCls] || '');
+
+  return [wStyle, hStyle, oStyle].filter(Boolean).join(';');
+}
+
+// ── Preview renderer ──────────────────────────────────
+function toPreview(b) {
+  const t = b.text ? esc(b.text) : '<em style="opacity:.4;font-size:12px">empty</em>';
+  switch(b.type) {
+    case 'h1': return `<h1>${t}</h1>`;
+    case 'h2': return `<h2>${t}</h2>`;
+    case 'h3': return `<h3>${t}</h3>`;
+    case 'note':    return `<div class="pv-note"><strong>Note:</strong> ${t}</div>`;
+    case 'info':    return `<div class="pv-info"><strong>Info:</strong> ${t}</div>`;
+    case 'warning': return `<div class="pv-warning"><strong>Warning:</strong> ${t}</div>`;
+    case 'alert':   return `<div class="pv-alert"><strong>Alert:</strong> ${t}</div>`;
+    case 'success': return `<div class="pv-success"><strong>Success:</strong> ${t}</div>`;
+    case 'tip':     return `<div class="pv-tip"><strong>Tip:</strong> ${t}</div>`;
+    case 'quote':   return `<div class="pv-quote">${t}</div>`;
+    case 'code':    return `<div class="pv-code">${t}</div>`;
+    case 'divider':       return `<hr class="pv-divider" />`;
+    case 'divider-dots':  return `<div class="pv-divider-dots"></div>`;
+    case 'divider-label': return `<div class="pv-divider-label"><span>${esc(b.label)||'label'}</span></div>`;
+
+    case 'image': {
+      if (!b.url) return `<div class="pv-note" style="opacity:.6;font-style:italic">🖼 Image block — add a URL or import a file</div>`;
+      const cap = b.caption ? `<div class="img-caption">${esc(b.caption)}</div>` : '';
+      const style = resolveImgStyles(b);
+      return `<div class="pv-img-wrap"><img src="${esc(b.url)}" alt="${esc(b.alt)}" style="${style}" />${cap}</div>`;
+    }
+
+    case 'video': {
+      if (!b.url) return `<div class="pv-note" style="opacity:.6;font-style:italic">▶ Video block — add an embed URL or import a file</div>`;
+      const style = resolveImgStyles(b);
+      if (b.isLocal) {
+        return `<div class="pv-video-wrap" style="overflow:hidden"><video style="${style}" controls><source src="${esc(b.url)}" /></video></div>`;
+      }
+      return `<div class="pv-video-wrap" style="overflow:hidden"><iframe style="${style}" src="${esc(b.url)}" allowfullscreen title="Video embed" frameborder="0"></iframe></div>`;
+    }
+
+    case 'table': {
+      const lbl = b.label ? `<div class="pv-table-label">${esc(b.label)}</div>` : '';
+      const head = b.headers.map(h=>`<th>${esc(h)}</th>`).join('');
+      const rows = b.rows.map(row=>`<tr>${row.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('');
+      return `${lbl}<div class="pv-table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    }
+
+    case 'btn-group': {
+      if (!b.buttons.length) return `<div style="opacity:.5;font-style:italic;font-size:13px;margin:14px 0">Button group — add buttons in the editor</div>`;
+      const btns = b.buttons.map(btn =>
+        `<span class="pv-btn pv-btn-${btn.variant}">${esc(btn.label)}${btn.arrow?' →':''}</span>`
+      ).join('');
+      return `<div class="pv-btn-group">${btns}</div>`;
+    }
+
+    case 'toggle': {
+      const vCls = b.variant ? ` pv-${b.variant}` : '';
+      return `<div class="pv-toggle${vCls}">
+        <div class="pv-toggle-head" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">${esc(b.summary)||'Toggle heading'}</div>
+        <div class="pv-toggle-body">${b.body?esc(b.body):'<em style="opacity:.4;font-size:12px">body content…</em>'}</div>
+      </div>`;
+    }
+
+    default: return `<p>${t}</p>`;
+  }
+}
+
+// ── Snippet renderer ──────────────────────────────────
+function toSnippet(b) {
+  const t = b.text||'';
+  switch(b.type) {
+    case 'h1': return `<h1>${t}</h1>`;
+    case 'h2': return `<h2>${t}</h2>`;
+    case 'h3': return `<h3>${t}</h3>`;
+    case 'note':    return `<div class="note"><strong>Note:</strong> ${t}</div>`;
+    case 'info':    return `<div class="info"><strong>Info:</strong> ${t}</div>`;
+    case 'warning': return `<div class="warning"><strong>Warning:</strong> ${t}</div>`;
+    case 'alert':   return `<div class="alert"><strong>Alert:</strong> ${t}</div>`;
+    case 'success': return `<div class="success"><strong>Success:</strong> ${t}</div>`;
+    case 'tip':     return `<div class="tip"><strong>Tip:</strong> ${t}</div>`;
+    case 'quote':   return `<blockquote>\n  <p>${t}</p>\n</blockquote>`;
+    case 'code':    return `<pre><code>${t}</code></pre>`;
+    case 'divider':       return `<hr class="divider" />`;
+    case 'divider-dots':  return `<hr class="divider-dots" />`;
+    case 'divider-label': return `<hr class="divider-label" data-label="${b.label||''}" />`;
+
+    case 'image': {
+      const style = resolveImgStyles(b);
+      const cap = b.caption ? `\n  <figcaption>${b.caption}</figcaption>` : '';
+      return `<figure>\n  <img src="${b.url||''}" alt="${b.alt||''}" style="${style}" />${cap}\n</figure>`;
+    }
+
+    case 'video': {
+      const style = resolveImgStyles(b);
+      if (b.isLocal) {
+        return `<div style="${style}">\n  <video width="100%" height="100%" controls>\n    <source src="${b.url||''}" type="${b.mimeType||'video/mp4'}" />\n  </video>\n</div>`;
+      }
+      return `<iframe\n  style="${style}"\n  src="${b.url||''}"\n  frameborder="0"\n  allowfullscreen\n  title="Video embed">\n</iframe>`;
+    }
+
+    case 'table': {
+      const lbl = b.label ? `<span class="table-label">${b.label}</span>\n` : '';
+      const head = b.headers.map(h=>`      <th>${h}</th>`).join('\n');
+      const rows = b.rows.map(row =>
+        `    <tr>\n${row.map(c=>`      <td>${c}</td>`).join('\n')}\n    </tr>`
+      ).join('\n');
+      return `${lbl}<div class="table-wrap">\n  <table>\n    <thead>\n      <tr>\n${head}\n      </tr>\n    </thead>\n    <tbody>\n${rows}\n    </tbody>\n  </table>\n</div>`;
+    }
+
+    case 'btn-group': {
+      const btns = b.buttons.map(btn => {
+        const arrow = btn.arrow ? '' : ' no-arrow';
+        return `  <a href="${btn.url||'#'}" class="btn btn-${btn.variant}${arrow}" target="_blank">${btn.label}</a>`;
+      }).join('\n');
+      return `<div class="btn-group">\n${btns}\n</div>`;
+    }
+
+    case 'toggle': {
+      const cls = b.variant ? ` ${b.variant}` : '';
+      return `<div class="nh-toggle${cls}">\n  <div class="nh-toggle-summary">${b.summary||''}</div>\n  <div class="nh-toggle-body">\n    <p>${b.body||''}</p>\n  </div>\n</div>`;
+    }
+
+    default: return `<p>${t}</p>`;
+  }
+}
+
+// ── Render all ────────────────────────────────────────
+function renderPreview() {
+  const pf = document.getElementById('preview-frame');
+  if (!blocks.length) { pf.innerHTML = '<div class="empty-state">Live preview appears here.</div>'; return; }
+  pf.innerHTML = blocks.map(toPreview).join('\n');
+}
+function renderOutput() {
+  document.getElementById('output-box').value = blocks.map(toSnippet).join('\n');
+}
+function copySnippets() {
+  const out = blocks.map(toSnippet).join('\n');
+  navigator.clipboard.writeText(out).then(() => {
+    const btn = event.target;
+    btn.textContent = 'Copied!';
+    setTimeout(()=>btn.textContent='Copy HTML',1500);
+  });
+}
+function showTab(tab) {
+  document.getElementById('pane-input').style.display  = tab==='input'  ? 'flex' : 'none';
+  document.getElementById('pane-blocks').style.display = tab==='blocks' ? 'flex' : 'none';
+  document.getElementById('tab-input').classList.toggle('active',  tab==='input');
+  document.getElementById('tab-blocks').classList.toggle('active', tab==='blocks');
+}
+function showRTab(tab) {
+  document.getElementById('pane-preview').style.display = tab==='preview' ? 'flex' : 'none';
+  document.getElementById('pane-output').style.display  = tab==='output'  ? 'flex' : 'none';
+  document.getElementById('tab-preview').classList.toggle('active', tab==='preview');
+  document.getElementById('tab-output').classList.toggle('active',  tab==='output');
+}
+</script>
+</body>
+</html>
