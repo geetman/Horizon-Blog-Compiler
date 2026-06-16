@@ -2,7 +2,9 @@
 ### *The all-in-one post authoring tool for the NH Blogger theme*
 
 > [!NOTE]
-> This tool runs entirely in your browser — no server, no login, no data leaves your machine. Open `index.html` and go.
+> This tool runs entirely in your browser — no server, no login, no data leaves your machine. Open `https://geetman.github.io/Horizon-Blog-Compiler/` and go.
+
+https://geetman.github.io/Horizon-Blog-Compiler/
 
 ---
 
